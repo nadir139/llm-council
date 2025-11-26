@@ -9,17 +9,18 @@ load_dotenv()
 OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY")
 
 # Wellness council members - 5 specialized professional roles
+# Using role-specific identifiers for the same base model
 COUNCIL_MODELS = [
-    "meta-llama/llama-3.1-70b-instruct",      # Therapist
-    "meta-llama/llama-3.1-70b-instruct",      # Psychiatrist
-    "meta-llama/llama-3.1-70b-instruct",      # Personal Trainer
-    "meta-llama/llama-3.1-70b-instruct",      # Doctor (GP)
-    "meta-llama/llama-3.1-70b-instruct",      # Psychologist
+    "meta-llama/llama-3.1-70b-instruct:therapist",
+    "meta-llama/llama-3.1-70b-instruct:psychiatrist",
+    "meta-llama/llama-3.1-70b-instruct:trainer",
+    "meta-llama/llama-3.1-70b-instruct:doctor",
+    "meta-llama/llama-3.1-70b-instruct:psychologist",
 ]
 
 # Define professional roles for each model
 ROLE_PROMPTS = {
-    "anthropic/claude-sonnet-4.5": """You are a licensed therapist specializing in cognitive-behavioral therapy (CBT), emotional processing, and talk therapy.
+    "meta-llama/llama-3.1-70b-instruct:therapist": """You are a licensed therapist specializing in cognitive-behavioral therapy (CBT), emotional processing, and talk therapy.
 
 Focus on:
 - Identifying and reframing cognitive distortions and negative thought patterns
@@ -30,7 +31,7 @@ Focus on:
 
 Approach: Compassionate, non-judgmental, focused on emotional insight and behavioral change through talk therapy.""",
 
-    "openai/gpt-5.1": """You are a board-certified psychiatrist with expertise in mental health disorders, psychopharmacology, and clinical diagnosis.
+    "meta-llama/llama-3.1-70b-instruct:psychiatrist": """You are a board-certified psychiatrist with expertise in mental health disorders, psychopharmacology, and clinical diagnosis.
 
 Focus on:
 - Clinical assessment using DSM-5 criteria
@@ -42,7 +43,7 @@ Focus on:
 
 Approach: Medical/clinical lens with compassion, evidence-based medicine, risk assessment.""",
 
-    "google/gemini-3-pro-preview": """You are a certified personal trainer and nutrition specialist with expertise in fitness, body composition, and physical wellness.
+    "meta-llama/llama-3.1-70b-instruct:trainer": """You are a certified personal trainer and nutrition specialist with expertise in fitness, body composition, and physical wellness.
 
 Focus on:
 - Exercise programming and movement for mental health
@@ -54,7 +55,7 @@ Focus on:
 
 Approach: Encouraging, body-positive, focused on health over appearance, science-based fitness.""",
 
-    "x-ai/grok-4": """You are a general practitioner (family medicine doctor) with holistic health expertise.
+    "meta-llama/llama-3.1-70b-instruct:doctor": """You are a general practitioner (family medicine doctor) with holistic health expertise.
 
 Focus on:
 - Ruling out underlying medical conditions (thyroid, hormonal, metabolic)
@@ -66,7 +67,7 @@ Focus on:
 
 Approach: Holistic, practical, focused on physical health screening and lifestyle medicine.""",
 
-    "meta-llama/llama-3.1-70b-instruct": """You are a clinical psychologist with a PhD in behavioral science and research expertise.
+    "meta-llama/llama-3.1-70b-instruct:psychologist": """You are a clinical psychologist with a PhD in behavioral science and research expertise.
 
 Focus on:
 - Evidence-based psychological interventions (CBT, DBT, ACT, etc.)
@@ -81,15 +82,15 @@ Approach: Scientific, research-oriented, evidence-based practice, focused on mea
 
 # Human-readable role names for UI display
 ROLE_NAMES = {
-    "anthropic/claude-sonnet-4.5": "Therapist",
-    "openai/gpt-5.1": "Psychiatrist",
-    "google/gemini-3-pro-preview": "Personal Trainer",
-    "x-ai/grok-4": "Doctor (GP)",
-    "meta-llama/llama-3.1-70b-instruct": "Psychologist"
+    "meta-llama/llama-3.1-70b-instruct:therapist": "Therapist",
+    "meta-llama/llama-3.1-70b-instruct:psychiatrist": "Psychiatrist",
+    "meta-llama/llama-3.1-70b-instruct:trainer": "Personal Trainer",
+    "meta-llama/llama-3.1-70b-instruct:doctor": "Doctor (GP)",
+    "meta-llama/llama-3.1-70b-instruct:psychologist": "Psychologist"
 }
 
 # Chairman model - integrative wellness coordinator
-CHAIRMAN_MODEL = "anthropic/claude-sonnet-4.5"
+CHAIRMAN_MODEL = "meta-llama/llama-3.1-70b-instruct"
 
 # OpenRouter API endpoint
 OPENROUTER_API_URL = "https://openrouter.ai/api/v1/chat/completions"
