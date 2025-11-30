@@ -9,6 +9,7 @@ function App() {
   const [currentConversationId, setCurrentConversationId] = useState(null);
   const [currentConversation, setCurrentConversation] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [sidebarOpen, setSidebarOpen] = useState(true);
 
   // Load conversations on mount
   useEffect(() => {
@@ -55,6 +56,38 @@ function App() {
 
   const handleSelectConversation = (id) => {
     setCurrentConversationId(id);
+  };
+
+  const handleStarConversation = async (id) => {
+    try {
+      await api.toggleStarConversation(id);
+      await loadConversations();
+    } catch (error) {
+      console.error('Failed to toggle star:', error);
+    }
+  };
+
+  const handleRenameConversation = async (id, newTitle) => {
+    try {
+      await api.updateConversationTitle(id, newTitle);
+      await loadConversations();
+    } catch (error) {
+      console.error('Failed to rename conversation:', error);
+    }
+  };
+
+  const handleDeleteConversation = async (id) => {
+    try {
+      await api.deleteConversation(id);
+      // If we deleted the current conversation, clear it
+      if (id === currentConversationId) {
+        setCurrentConversationId(null);
+        setCurrentConversation(null);
+      }
+      await loadConversations();
+    } catch (error) {
+      console.error('Failed to delete conversation:', error);
+    }
   };
 
   const handleSendMessage = async (content) => {
@@ -183,11 +216,28 @@ function App() {
 
   return (
     <div className="app">
+      {!sidebarOpen && (
+        <button
+          className="sidebar-toggle-floating"
+          onClick={() => setSidebarOpen(true)}
+          aria-label="Open sidebar"
+          title="Open sidebar (Ctrl+.)"
+        >
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+            <path d="M1 3h14v1H1V3zm0 4h14v1H1V7zm0 4h14v1H1v-1z"/>
+          </svg>
+        </button>
+      )}
       <Sidebar
         conversations={conversations}
         currentConversationId={currentConversationId}
         onSelectConversation={handleSelectConversation}
         onNewConversation={handleNewConversation}
+        onStarConversation={handleStarConversation}
+        onRenameConversation={handleRenameConversation}
+        onDeleteConversation={handleDeleteConversation}
+        isOpen={sidebarOpen}
+        onToggleSidebar={() => setSidebarOpen(!sidebarOpen)}
       />
       <ChatInterface
         conversation={currentConversation}

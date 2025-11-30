@@ -5,6 +5,15 @@
   display: flex;
   flex-direction: column;
   height: 100vh;
+  transition: transform 0.3s ease, opacity 0.3s ease;
+  transform: translateX(0);
+  opacity: 1;
+}
+
+.sidebar.collapsed {
+  transform: translateX(-100%);
+  opacity: 0;
+  pointer-events: none;
 }
 
 .sidebar-header {
@@ -12,10 +21,40 @@
   border-bottom: 1px solid #e0e0e0;
 }
 
+.sidebar-header-top {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.sidebar-toggle {
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #666;
+  border-radius: 4px;
+  transition: background 0.2s, color 0.2s;
+}
+
+.sidebar-toggle:hover {
+  background: #e0e0e0;
+  color: #333;
+}
+
+.sidebar-toggle svg {
+  display: block;
+}
+
 .sidebar-header h1 {
   font-size: 18px;
-  margin: 0 0 12px 0;
+  margin: 0;
   color: #333;
+  flex: 1;
 }
 
 .new-conversation-btn {
@@ -49,16 +88,39 @@
   font-size: 14px;
 }
 
+/* Section headers */
+.conversation-section {
+  margin-bottom: 16px;
+}
+
+.section-header {
+  padding: 8px 12px;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  color: #666;
+  letter-spacing: 0.5px;
+}
+
+/* Conversation items */
 .conversation-item {
-  padding: 12px;
-  margin-bottom: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 12px;
+  margin-bottom: 2px;
   border-radius: 6px;
   cursor: pointer;
   transition: background 0.2s;
+  position: relative;
 }
 
 .conversation-item:hover {
   background: #f0f0f0;
+}
+
+.conversation-item:hover .menu-button {
+  opacity: 1;
 }
 
 .conversation-item.active {
@@ -66,13 +128,99 @@
   border: 1px solid #4a90e2;
 }
 
+.conversation-content {
+  flex: 1;
+  min-width: 0;
+}
+
 .conversation-title {
   color: #333;
   font-size: 14px;
   margin-bottom: 4px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .conversation-meta {
   color: #999;
   font-size: 12px;
+}
+
+/* Three-dot menu button */
+.conversation-actions {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.menu-button {
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 18px;
+  color: #666;
+  padding: 4px 8px;
+  border-radius: 4px;
+  opacity: 0;
+  transition: opacity 0.2s, background 0.2s;
+}
+
+.menu-button:hover {
+  background: #e0e0e0;
+  color: #333;
+}
+
+.conversation-item.active .menu-button {
+  opacity: 1;
+}
+
+/* Dropdown menu */
+.dropdown-menu {
+  position: absolute;
+  top: 100%;
+  right: 0;
+  margin-top: 4px;
+  background: white;
+  border: 1px solid #d0d0d0;
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  min-width: 160px;
+  z-index: 1000;
+  overflow: hidden;
+}
+
+.dropdown-item {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  padding: 10px 14px;
+  background: none;
+  border: none;
+  text-align: left;
+  cursor: pointer;
+  font-size: 14px;
+  color: #333;
+  transition: background 0.2s;
+}
+
+.dropdown-item:hover {
+  background: #f5f5f5;
+}
+
+.dropdown-item.delete {
+  color: #d32f2f;
+}
+
+.dropdown-item.delete:hover {
+  background: #fdeaea;
+}
+
+.dropdown-icon {
+  margin-right: 10px;
+  font-size: 16px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
 }
