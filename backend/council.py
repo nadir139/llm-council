@@ -1,32 +1,70 @@
-"""3-stage LLM Council orchestration."""
+"""3-stage Wellness Council orchestration."""
 
 from typing import List, Dict, Any, Tuple
-from .openrouter import query_models_parallel, query_model
-from .config import COUNCIL_MODELS, CHAIRMAN_MODEL
+from .openrouter import query_model
+from .config import (
+    COUNCIL_MODELS, CHAIRMAN_MODEL, ROLE_PROMPTS, ROLE_NAMES,
+    MEDICAL_DISCLAIMER, CRISIS_KEYWORDS
+)
+import asyncio
 
 
-async def stage1_collect_responses(user_query: str) -> List[Dict[str, Any]]:
+def check_for_crisis(user_query: str) -> bool:
     """
-    Stage 1: Collect individual responses from all council models.
+    Detect if query contains crisis indicators requiring immediate intervention.
 
     Args:
         user_query: The user's question
 
     Returns:
-        List of dicts with 'model' and 'response' keys
+        True if crisis keywords detected, False otherwise
     """
-    messages = [{"role": "user", "content": user_query}]
+    query_lower = user_query.lower()
+    return any(keyword in query_lower for keyword in CRISIS_KEYWORDS)
 
-    # Query all models in parallel
-    responses = await query_models_parallel(COUNCIL_MODELS, messages)
 
-    # Format results
+async def stage1_collect_responses(user_query: str) -> List[Dict[str, Any]]:
+    """
+    Stage 1: Collect individual responses from wellness professionals.
+
+    Args:
+        user_query: The user's wellness question/concern
+
+    Returns:
+        List of dicts with 'model', 'response', and 'role' keys
+    """
+    # Prepend disclaimer to user query
+    query_with_disclaimer = f"""{MEDICAL_DISCLAIMER}
+
+User's Question/Concern:
+{user_query}
+
+Please provide your professional perspective on this concern."""
+
     stage1_results = []
-    for model, response in responses.items():
+
+    # Query each model with its specific professional role
+    tasks = []
+    for model in COUNCIL_MODELS:
+        role_context = ROLE_PROMPTS.get(model, "")
+
+        messages = [
+            {"role": "system", "content": role_context},
+            {"role": "user", "content": query_with_disclaimer}
+        ]
+
+        tasks.append(query_model(model, messages))
+
+    # Wait for all responses
+    responses = await asyncio.gather(*tasks)
+
+    # Format results with role information
+    for model, response in zip(COUNCIL_MODELS, responses):
         if response is not None:  # Only include successful responses
             stage1_results.append({
                 "model": model,
-                "response": response.get('content', '')
+                "response": response.get('content', ''),
+                "role": ROLE_NAMES.get(model, "Health Professional")
             })
 
     return stage1_results
@@ -61,17 +99,24 @@ async def stage2_collect_rankings(
         for label, result in zip(labels, stage1_results)
     ])
 
-    ranking_prompt = f"""You are evaluating different responses to the following question:
+    ranking_prompt = f"""You are a healthcare professional conducting peer review of wellness recommendations.
 
-Question: {user_query}
+User's Concern: {user_query}
 
-Here are the responses from different models (anonymized):
+Here are responses from different healthcare professionals (anonymized for unbiased review):
 
 {responses_text}
 
-Your task:
-1. First, evaluate each response individually. For each response, explain what it does well and what it does poorly.
-2. Then, at the very end of your response, provide a final ranking.
+Your task as a healthcare professional:
+1. First, evaluate each response individually. For each response, consider:
+   - Appropriateness and safety of the advice given
+   - Whether important medical/psychological factors were considered
+   - Potential risks, contraindications, or red flags
+   - Completeness of the professional perspective
+   - Evidence-based quality and practical applicability
+   - Compassion and person-centered approach
+
+2. Then, at the very end of your response, provide your FINAL RANKING of which responses would be most helpful and safe for this person.
 
 IMPORTANT: Your final ranking MUST be formatted EXACTLY as follows:
 - Start with the line "FINAL RANKING:" (all caps, with colon)
@@ -79,34 +124,42 @@ IMPORTANT: Your final ranking MUST be formatted EXACTLY as follows:
 - Each line should be: number, period, space, then ONLY the response label (e.g., "1. Response A")
 - Do not add any other text or explanations in the ranking section
 
-Example of the correct format for your ENTIRE response:
+Example format:
 
-Response A provides good detail on X but misses Y...
-Response B is accurate but lacks depth on Z...
-Response C offers the most comprehensive answer...
+Response A provides compassionate insight into emotional factors but may miss underlying medical considerations...
+Response B offers evidence-based interventions and appropriately addresses safety concerns...
+Response C takes a holistic approach but could be more specific...
 
 FINAL RANKING:
-1. Response C
-2. Response A
-3. Response B
+1. Response B
+2. Response C
+3. Response A
 
-Now provide your evaluation and ranking:"""
+Now provide your peer evaluation and ranking:"""
 
-    messages = [{"role": "user", "content": ranking_prompt}]
+    # Get rankings from all council models in parallel, each with their professional role
+    tasks = []
+    for model in COUNCIL_MODELS:
+        role_context = ROLE_PROMPTS.get(model, "")
+        messages = [
+            {"role": "system", "content": role_context},
+            {"role": "user", "content": ranking_prompt}
+        ]
+        tasks.append(query_model(model, messages))
 
-    # Get rankings from all council models in parallel
-    responses = await query_models_parallel(COUNCIL_MODELS, messages)
+    responses = await asyncio.gather(*tasks)
 
     # Format results
     stage2_results = []
-    for model, response in responses.items():
+    for model, response in zip(COUNCIL_MODELS, responses):
         if response is not None:
             full_text = response.get('content', '')
             parsed = parse_ranking_from_text(full_text)
             stage2_results.append({
                 "model": model,
                 "ranking": full_text,
-                "parsed_ranking": parsed
+                "parsed_ranking": parsed,
+                "role": ROLE_NAMES.get(model, "Health Professional")
             })
 
     return stage2_results, label_to_model
@@ -139,22 +192,37 @@ async def stage3_synthesize_final(
         for result in stage2_results
     ])
 
-    chairman_prompt = f"""You are the Chairman of an LLM Council. Multiple AI models have provided responses to a user's question, and then ranked each other's responses.
+    chairman_prompt = f"""You are an Integrative Wellness Coordinator synthesizing input from a multidisciplinary healthcare team.
 
-Original Question: {user_query}
+{MEDICAL_DISCLAIMER}
 
-STAGE 1 - Individual Responses:
+User's Concern: {user_query}
+
+PROFESSIONAL PERSPECTIVES (Stage 1):
 {stage1_text}
 
-STAGE 2 - Peer Rankings:
+PEER EVALUATIONS (Stage 2):
 {stage2_text}
 
-Your task as Chairman is to synthesize all of this information into a single, comprehensive, accurate answer to the user's original question. Consider:
-- The individual responses and their insights
-- The peer rankings and what they reveal about response quality
-- Any patterns of agreement or disagreement
+Your task as Integrative Wellness Coordinator:
+Synthesize all professional perspectives into a holistic, compassionate wellness recommendation that:
 
-Provide a clear, well-reasoned final answer that represents the council's collective wisdom:"""
+1. **Safety First**: Flag any medical red flags or concerns requiring immediate professional intervention
+2. **Integrative Approach**: Combine physical, mental, emotional, and behavioral health dimensions
+3. **Actionable Steps**: Provide clear, practical next steps the person can take
+4. **Professional Care**: Emphasize when and why to seek specific professional help
+5. **Evidence-Based**: Prioritize interventions with research support
+6. **Person-Centered**: Be compassionate, non-judgmental, and empowering
+7. **Patterns of Agreement**: Highlight where multiple professionals agree (strong signal)
+8. **Balanced Perspective**: Address different viewpoints respectfully
+
+Structure your response as:
+- **Key Insights**: What the council collectively understands about this concern
+- **Recommended Approach**: Integrated action plan combining perspectives
+- **Important Considerations**: Safety concerns, when to seek professional help, what to monitor
+- **Next Steps**: Specific, actionable recommendations
+
+Provide your integrative wellness recommendation:"""
 
     messages = [{"role": "user", "content": chairman_prompt}]
 
@@ -295,31 +363,34 @@ Title:"""
 
 async def run_full_council(user_query: str) -> Tuple[List, List, Dict, Dict]:
     """
-    Run the complete 3-stage council process.
+    Run the complete 3-stage wellness council process.
 
     Args:
-        user_query: The user's question
+        user_query: The user's wellness question/concern
 
     Returns:
         Tuple of (stage1_results, stage2_results, stage3_result, metadata)
     """
-    # Stage 1: Collect individual responses
+    # Check for crisis keywords
+    is_crisis = check_for_crisis(user_query)
+
+    # Stage 1: Collect individual responses from wellness professionals
     stage1_results = await stage1_collect_responses(user_query)
 
     # If no models responded successfully, return error
     if not stage1_results:
         return [], [], {
             "model": "error",
-            "response": "All models failed to respond. Please try again."
-        }, {}
+            "response": "All wellness professionals failed to respond. Please try again."
+        }, {"is_crisis": is_crisis}
 
-    # Stage 2: Collect rankings
+    # Stage 2: Collect peer rankings
     stage2_results, label_to_model = await stage2_collect_rankings(user_query, stage1_results)
 
     # Calculate aggregate rankings
     aggregate_rankings = calculate_aggregate_rankings(stage2_results, label_to_model)
 
-    # Stage 3: Synthesize final answer
+    # Stage 3: Synthesize final wellness recommendation
     stage3_result = await stage3_synthesize_final(
         user_query,
         stage1_results,
@@ -329,7 +400,8 @@ async def run_full_council(user_query: str) -> Tuple[List, List, Dict, Dict]:
     # Prepare metadata
     metadata = {
         "label_to_model": label_to_model,
-        "aggregate_rankings": aggregate_rankings
+        "aggregate_rankings": aggregate_rankings,
+        "is_crisis": is_crisis
     }
 
     return stage1_results, stage2_results, stage3_result, metadata

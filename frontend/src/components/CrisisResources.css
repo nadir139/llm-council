@@ -1,0 +1,83 @@
+.crisis-resources {
+  padding: 16px;
+  background: #ffebee;
+  border: 2px solid #ef5350;
+  border-radius: 8px;
+  margin-bottom: 20px;
+  box-shadow: 0 2px 8px rgba(239, 83, 80, 0.15);
+}
+
+.crisis-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 12px;
+  color: #c62828;
+}
+
+.crisis-icon {
+  font-size: 24px;
+}
+
+.crisis-header strong {
+  font-size: 14px;
+  letter-spacing: 0.3px;
+}
+
+.crisis-content {
+  color: #333;
+}
+
+.crisis-content p {
+  margin: 0 0 12px 0;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.crisis-list {
+  margin: 0 0 12px 0;
+  padding-left: 20px;
+  list-style: none;
+}
+
+.crisis-list li {
+  margin-bottom: 10px;
+  padding: 8px;
+  background: white;
+  border-radius: 4px;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.crisis-list li strong {
+  color: #c62828;
+  display: block;
+  margin-bottom: 2px;
+}
+
+.crisis-list a {
+  color: #1976d2;
+  text-decoration: none;
+  font-weight: 600;
+}
+
+.crisis-list a:hover {
+  text-decoration: underline;
+}
+
+.available-24-7 {
+  color: #666;
+  font-size: 12px;
+  font-style: italic;
+}
+
+.crisis-note {
+  font-weight: 600;
+  color: #c62828;
+  font-size: 13px;
+  margin-top: 12px;
+  padding: 8px;
+  background: white;
+  border-radius: 4px;
+  text-align: center;
+}

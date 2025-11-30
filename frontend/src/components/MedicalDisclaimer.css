@@ -1,0 +1,35 @@
+.medical-disclaimer {
+  display: flex;
+  gap: 12px;
+  padding: 12px 16px;
+  background: #fff8e1;
+  border: 1px solid #ffd54f;
+  border-radius: 6px;
+  margin-bottom: 16px;
+  align-items: flex-start;
+}
+
+.disclaimer-icon {
+  font-size: 20px;
+  flex-shrink: 0;
+}
+
+.disclaimer-content {
+  flex: 1;
+}
+
+.disclaimer-content strong {
+  display: block;
+  color: #f57c00;
+  font-size: 13px;
+  margin-bottom: 4px;
+  text-decoration: underline;
+  font-weight: bold;
+}
+
+.disclaimer-content p {
+  margin: 0;
+  color: #666;
+  font-size: 12px;
+  line-height: 1.4;
+}

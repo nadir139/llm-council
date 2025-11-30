@@ -11,7 +11,10 @@ export default function Stage1({ responses }) {
 
   return (
     <div className="stage stage1">
-      <h3 className="stage-title">Stage 1: Individual Responses</h3>
+      <h3 className="stage-title">Stage 1: Professional Perspectives</h3>
+      <p className="stage-description">
+        Each wellness professional provides their independent perspective based on their expertise.
+      </p>
 
       <div className="tabs">
         {responses.map((resp, index) => (
@@ -20,13 +23,16 @@ export default function Stage1({ responses }) {
             className={`tab ${activeTab === index ? 'active' : ''}`}
             onClick={() => setActiveTab(index)}
           >
-            {resp.model.split('/')[1] || resp.model}
+            {resp.role || resp.model.split('/')[1] || resp.model}
           </button>
         ))}
       </div>
 
       <div className="tab-content">
-        <div className="model-name">{responses[activeTab].model}</div>
+        <div className="professional-header">
+          <span className="role-badge">{responses[activeTab].role || 'Health Professional'}</span>
+          <span className="model-name">{responses[activeTab].model}</span>
+        </div>
         <div className="response-text markdown-content">
           <ReactMarkdown>{responses[activeTab].response}</ReactMarkdown>
         </div>

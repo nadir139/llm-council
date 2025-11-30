@@ -10,15 +10,15 @@ export default function Sidebar({
   return (
     <div className="sidebar">
       <div className="sidebar-header">
-        <h1>LLM Council</h1>
+        <h1>Wellness Partners</h1>
         <button className="new-conversation-btn" onClick={onNewConversation}>
-          + New Conversation
+          + New Session
         </button>
       </div>
 
       <div className="conversation-list">
         {conversations.length === 0 ? (
-          <div className="no-conversations">No conversations yet</div>
+          <div className="no-conversations">No sessions yet</div>
         ) : (
           conversations.map((conv) => (
             <div
@@ -38,6 +38,6 @@ export default function Sidebar({
           ))
         )}
       </div>
-    </div>
-  );
+    </div>  
+  )
 }

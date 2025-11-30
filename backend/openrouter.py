@@ -14,20 +14,24 @@ async def query_model(
     Query a single model via OpenRouter API.
 
     Args:
-        model: OpenRouter model identifier (e.g., "openai/gpt-4o")
+        model: OpenRouter model identifier (e.g., "openai/gpt-4o" or "openai/gpt-4o:role")
         messages: List of message dicts with 'role' and 'content'
         timeout: Request timeout in seconds
 
     Returns:
         Response dict with 'content' and optional 'reasoning_details', or None if failed
     """
+    # Extract base model identifier (remove role suffix if present)
+    # e.g., "meta-llama/llama-3.1-70b-instruct:therapist" -> "meta-llama/llama-3.1-70b-instruct"
+    base_model = model.split(':')[0] if ':' in model else model
+
     headers = {
         "Authorization": f"Bearer {OPENROUTER_API_KEY}",
         "Content-Type": "application/json",
     }
 
     payload = {
-        "model": model,
+        "model": base_model,
         "messages": messages,
     }
 
