@@ -34,11 +34,17 @@ class SendMessageRequest(BaseModel):
     content: str
 
 
+class UpdateTitleRequest(BaseModel):
+    """Request to update conversation title."""
+    title: str
+
+
 class ConversationMetadata(BaseModel):
     """Conversation metadata for list view."""
     id: str
     created_at: str
     title: str
+    starred: bool
     message_count: int
 
 
@@ -192,6 +198,33 @@ async def send_message_stream(conversation_id: str, request: SendMessageRequest)
             "Connection": "keep-alive",
         }
     )
+
+
+@app.post("/api/conversations/{conversation_id}/star")
+async def toggle_star_conversation(conversation_id: str):
+    """Toggle the starred status of a conversation."""
+    try:
+        starred = storage.toggle_conversation_starred(conversation_id)
+        return {"starred": starred}
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+
+
+@app.patch("/api/conversations/{conversation_id}/title")
+async def update_conversation_title(conversation_id: str, request: UpdateTitleRequest):
+    """Update the title of a conversation."""
+    try:
+        storage.update_conversation_title(conversation_id, request.title)
+        return {"title": request.title}
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+
+
+@app.delete("/api/conversations/{conversation_id}")
+async def delete_conversation(conversation_id: str):
+    """Delete a conversation."""
+    storage.delete_conversation(conversation_id)
+    return {"deleted": True}
 
 
 if __name__ == "__main__":

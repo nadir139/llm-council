@@ -34,6 +34,7 @@ def create_conversation(conversation_id: str) -> Dict[str, Any]:
         "id": conversation_id,
         "created_at": datetime.utcnow().isoformat(),
         "title": "New Conversation",
+        "starred": False,
         "messages": []
     }
 
@@ -98,6 +99,7 @@ def list_conversations() -> List[Dict[str, Any]]:
                     "id": data["id"],
                     "created_at": data["created_at"],
                     "title": data.get("title", "New Conversation"),
+                    "starred": data.get("starred", False),
                     "message_count": len(data["messages"])
                 })
 
@@ -170,3 +172,34 @@ def update_conversation_title(conversation_id: str, title: str):
 
     conversation["title"] = title
     save_conversation(conversation)
+
+
+def toggle_conversation_starred(conversation_id: str) -> bool:
+    """
+    Toggle the starred status of a conversation.
+
+    Args:
+        conversation_id: Conversation identifier
+
+    Returns:
+        New starred status (True/False)
+    """
+    conversation = get_conversation(conversation_id)
+    if conversation is None:
+        raise ValueError(f"Conversation {conversation_id} not found")
+
+    conversation["starred"] = not conversation.get("starred", False)
+    save_conversation(conversation)
+    return conversation["starred"]
+
+
+def delete_conversation(conversation_id: str):
+    """
+    Delete a conversation.
+
+    Args:
+        conversation_id: Conversation identifier
+    """
+    path = get_conversation_path(conversation_id)
+    if os.path.exists(path):
+        os.remove(path)
