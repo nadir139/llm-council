@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import ReactMarkdown from 'react-markdown';
 import Stage1 from './Stage1';
-import Stage2 from './Stage2';
+// Stage2 import removed - now hidden from users, kept in backend for analytics
 import Stage3 from './Stage3';
 import MedicalDisclaimer from './MedicalDisclaimer';
 import CrisisResources from './CrisisResources';
@@ -83,7 +83,7 @@ export default function ChatInterface({
                     {/* Crisis Resources */}
                     {msg.metadata?.is_crisis && <CrisisResources />}
 
-                    {/* Stage 1 */}
+                    {/* Stage 1: Individual Professional Perspectives */}
                     {msg.loading?.stage1 && (
                       <div className="stage-loading">
                         <div className="spinner"></div>
@@ -92,22 +92,13 @@ export default function ChatInterface({
                     )}
                     {msg.stage1 && <Stage1 responses={msg.stage1} />}
 
-                    {/* Stage 2 */}
-                    {msg.loading?.stage2 && (
-                      <div className="stage-loading">
-                        <div className="spinner"></div>
-                        <span>Conducting peer review...</span>
-                      </div>
-                    )}
-                    {msg.stage2 && (
-                      <Stage2
-                        rankings={msg.stage2}
-                        labelToModel={msg.metadata?.label_to_model}
-                        aggregateRankings={msg.metadata?.aggregate_rankings}
-                      />
-                    )}
+                    {/* Stage 2: HIDDEN FROM USERS
+                        Stage 2 (peer review/rankings) still runs in the backend for analytics
+                        and research purposes, but is no longer displayed to end users.
+                        Admins can access Stage 2 data via: GET /api/admin/conversations/{id}/stage2
+                    */}
 
-                    {/* Stage 3 */}
+                    {/* Stage 3: Final Synthesis */}
                     {msg.loading?.stage3 && (
                       <div className="stage-loading">
                         <div className="spinner"></div>

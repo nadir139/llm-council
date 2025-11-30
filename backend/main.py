@@ -1,15 +1,16 @@
 """FastAPI backend for LLM Council."""
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Header
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Optional
 import uuid
 import json
 import asyncio
 
 from . import storage
+from . import config
 from .council import run_full_council, generate_conversation_title, stage1_collect_responses, stage2_collect_rankings, stage3_synthesize_final, calculate_aggregate_rankings
 
 app = FastAPI(title="LLM Council API")
@@ -225,6 +226,72 @@ async def delete_conversation(conversation_id: str):
     """Delete a conversation."""
     storage.delete_conversation(conversation_id)
     return {"deleted": True}
+
+
+@app.get("/api/admin/conversations/{conversation_id}/stage2")
+async def get_stage2_analytics(
+    conversation_id: str,
+    x_admin_key: Optional[str] = Header(None, alias="X-Admin-Key")
+):
+    """
+    Get Stage 2 data for analytics and research (admin only).
+
+    This endpoint is hidden from regular users and requires an admin API key.
+    Stage 2 contains:
+    - Raw peer review rankings from each model
+    - Label-to-model mapping (de-anonymization data)
+    - Aggregate rankings (street cred scores)
+
+    Usage:
+    curl -H "X-Admin-Key: your_admin_key" http://localhost:8001/api/admin/conversations/{id}/stage2
+    """
+    # Verify admin key
+    if x_admin_key != config.ADMIN_API_KEY:
+        raise HTTPException(
+            status_code=403,
+            detail="Admin access required. Please provide a valid X-Admin-Key header."
+        )
+
+    # Get the conversation
+    conversation = storage.get_conversation(conversation_id)
+    if conversation is None:
+        raise HTTPException(status_code=404, detail="Conversation not found")
+
+    # Extract Stage 2 data from all messages
+    stage2_analytics = []
+
+    for idx, message in enumerate(conversation["messages"]):
+        if message["role"] == "assistant" and "stage2" in message:
+            # Extract Stage 2 data
+            analytics_entry = {
+                "message_index": idx,
+                "user_question": conversation["messages"][idx - 1]["content"] if idx > 0 else "N/A",
+                "stage2": message["stage2"],
+                "metadata": {
+                    "label_to_model": message.get("metadata", {}).get("label_to_model", {}),
+                    "aggregate_rankings": message.get("metadata", {}).get("aggregate_rankings", []),
+                    "is_crisis": message.get("metadata", {}).get("is_crisis", False)
+                }
+            }
+            stage2_analytics.append(analytics_entry)
+
+    if not stage2_analytics:
+        return {
+            "conversation_id": conversation_id,
+            "title": conversation.get("title", "Untitled"),
+            "created_at": conversation.get("created_at"),
+            "message": "No Stage 2 data found in this conversation",
+            "stage2_data": []
+        }
+
+    return {
+        "conversation_id": conversation_id,
+        "title": conversation.get("title", "Untitled"),
+        "created_at": conversation.get("created_at"),
+        "total_interactions": len(stage2_analytics),
+        "stage2_data": stage2_analytics,
+        "note": "This data is for analytics and research purposes. Stage 2 is hidden from end users."
+    }
 
 
 if __name__ == "__main__":

@@ -85,3 +85,34 @@ Then open http://localhost:5173 in your browser.
 - **Frontend:** React + Vite, react-markdown for rendering
 - **Storage:** JSON files in `data/conversations/`
 - **Package Management:** uv for Python, npm for JavaScript
+
+## Project Structure
+
+```
+llm-council/
+├── backend/           # FastAPI backend server
+├── frontend/          # React + Vite frontend
+├── data/              # JSON conversation storage
+├── docs/              # Documentation files
+├── scripts/           # Utility scripts
+├── archive/           # Historical planning documents
+├── .env               # Environment variables (not tracked)
+├── CLAUDE.md          # Technical notes for development
+└── README.md          # This file
+```
+
+## Utility Scripts
+
+See [scripts/README.md](scripts/README.md) for available utility scripts.
+
+**Quick reference:**
+- View Stage 2 analytics: `python scripts/view_stage2.py <conversation_id>`
+- List all conversations: `python scripts/view_stage2.py --list`
+
+## Documentation
+
+- **[CLAUDE.md](CLAUDE.md)** - Technical notes and architecture details for developers
+- **[docs/](docs/)** - Additional documentation
+  - Admin Stage 2 access guide
+  - Feature summaries
+  - Wellness Council overview 

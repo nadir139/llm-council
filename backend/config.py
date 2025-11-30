@@ -8,6 +8,10 @@ load_dotenv()
 # OpenRouter API key
 OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY")
 
+# Admin API key for accessing Stage 2 analytics
+# Set this in your .env file: ADMIN_API_KEY=your_secret_key_here
+ADMIN_API_KEY = os.getenv("ADMIN_API_KEY", "change-this-in-production")
+
 # Wellness council members - 5 specialized professional roles
 # Using role-specific identifiers for the same base model
 COUNCIL_MODELS = [
