@@ -17,6 +17,8 @@ function App() {
   const [currentConversation, setCurrentConversation] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(true);
+  // Feature 3: Follow-up form loading state
+  const [isFollowUpLoading, setIsFollowUpLoading] = useState(false);
 
   // Onboarding state
   const [currentView, setCurrentView] = useState('landing'); // 'landing', 'questions', 'signup', 'signin', 'chat'
@@ -70,7 +72,9 @@ function App() {
           }
         }
       } catch (error) {
-        console.error('Error checking profile:', error);
+        // Silently handle errors during authentication flow
+        // User will be redirected to landing page
+        setCurrentView('landing');
       } finally {
         setCheckingProfile(false);
       }
@@ -79,10 +83,18 @@ function App() {
     checkProfile();
   }, [isLoaded, isSignedIn, getToken]);
 
-  // Load conversations on mount
+  // Load conversations when user is authenticated and in chat view
   useEffect(() => {
-    loadConversations();
-  }, []);
+    // Only load conversations if user is fully authenticated and in chat view
+    // This ensures the token is ready before attempting to fetch conversations
+    if (isLoaded && isSignedIn && currentView === 'chat') {
+      // Small delay to ensure Clerk's getToken() is ready
+      const timer = setTimeout(() => {
+        loadConversations();
+      }, 150);
+      return () => clearTimeout(timer);
+    }
+  }, [isLoaded, isSignedIn, currentView]);
 
   // Load conversation details when selected
   useEffect(() => {
@@ -155,6 +167,47 @@ function App() {
       await loadConversations();
     } catch (error) {
       console.error('Failed to delete conversation:', error);
+    }
+  };
+
+  // Feature 3: Handle follow-up form submission
+  const handleSubmitFollowUp = async (followUpAnswers) => {
+    if (!currentConversationId) return;
+
+    setIsFollowUpLoading(true);
+    try {
+      // Call the follow-up API endpoint
+      const response = await api.submitFollowUp(
+        currentConversationId,
+        followUpAnswers,
+        getToken
+      );
+
+      // Add the second report as a new assistant message
+      const secondReport = {
+        role: 'assistant',
+        stage1: response.stage1,
+        stage2: [], // Stage 2 hidden from users
+        stage3: response.stage3,
+        metadata: response.metadata,
+      };
+
+      // Update conversation with the new report
+      setCurrentConversation((prev) => ({
+        ...prev,
+        messages: [...prev.messages, secondReport],
+        report_cycle: response.report_cycle,
+        has_follow_up: true,
+        follow_up_answers: followUpAnswers,
+      }));
+
+      // Reload conversations list to update sidebar
+      loadConversations();
+    } catch (error) {
+      console.error('Failed to submit follow-up:', error);
+      alert('Failed to generate second report. Please try again.');
+    } finally {
+      setIsFollowUpLoading(false);
     }
   };
 
@@ -259,6 +312,13 @@ function App() {
           case 'complete':
             // Stream complete, reload conversations list
             loadConversations();
+            // Feature 3: Update report_cycle if provided
+            if (event.report_cycle !== undefined) {
+              setCurrentConversation((prev) => ({
+                ...prev,
+                report_cycle: event.report_cycle,
+              }));
+            }
             setIsLoading(false);
             break;
 
@@ -286,8 +346,8 @@ function App() {
   useEffect(() => {
     if (isLoaded && isSignedIn && userProfile && currentView !== 'chat') {
       // User is signed in and has profile, go to chat
+      // loadConversations will be triggered by the dedicated effect when currentView changes
       setCurrentView('chat');
-      loadConversations();
     }
   }, [isSignedIn, isLoaded, userProfile]);
 
@@ -391,6 +451,8 @@ function App() {
         conversation={currentConversation}
         onSendMessage={handleSendMessage}
         isLoading={isLoading}
+        onSubmitFollowUp={handleSubmitFollowUp}
+        isFollowUpLoading={isFollowUpLoading}
       />
     </div>
   );

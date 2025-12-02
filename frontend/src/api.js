@@ -55,6 +55,9 @@ export const api = {
       if (response.status === 404) {
         return null; // Profile doesn't exist yet
       }
+      if (response.status === 401) {
+        return null; // Not authenticated yet (during sign-in flow)
+      }
       throw new Error('Failed to get profile');
     }
     return response.json();
@@ -84,6 +87,9 @@ export const api = {
       headers: await getHeaders(getToken),
     });
     if (!response.ok) {
+      if (response.status === 401) {
+        return []; // Not authenticated yet, return empty list
+      }
       throw new Error('Failed to list conversations');
     }
     return response.json();
@@ -232,6 +238,33 @@ export const api = {
     );
     if (!response.ok) {
       throw new Error('Failed to delete conversation');
+    }
+    return response.json();
+  },
+
+  /**
+   * Submit follow-up answers and generate second report (Feature 3).
+   *
+   * This endpoint saves the follow-up context and automatically generates
+   * a second council report with the additional information.
+   *
+   * @param {string} conversationId - The conversation ID
+   * @param {string} followUpAnswers - User's answers to follow-up questions
+   * @param {function} getToken - Function to get auth token
+   * @returns {Promise<object>} - Second report with stage1, stage3, and metadata
+   */
+  async submitFollowUp(conversationId, followUpAnswers, getToken) {
+    const response = await fetch(
+      `${API_BASE}/api/conversations/${conversationId}/follow-up`,
+      {
+        method: 'POST',
+        headers: await getHeaders(getToken),
+        body: JSON.stringify({ follow_up_answers: followUpAnswers }),
+      }
+    );
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.detail || 'Failed to submit follow-up');
     }
     return response.json();
   },

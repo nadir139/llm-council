@@ -9,6 +9,73 @@ from .config import (
 import asyncio
 
 
+def build_profile_context(user_profile: Dict[str, Any]) -> str:
+    """
+    Build a natural language context string from user profile data.
+
+    This context will be injected into council prompts so that professionals
+    can provide more personalized and relevant recommendations.
+
+    Args:
+        user_profile: Dict containing gender, age_range, mood
+
+    Returns:
+        Formatted context string for injection into prompts
+    """
+    if not user_profile:
+        return ""
+
+    profile_data = user_profile.get('profile', {})
+    gender = profile_data.get('gender', 'not specified')
+    age_range = profile_data.get('age_range', 'not specified')
+    mood = profile_data.get('mood', 'not specified')
+
+    # Map technical values to human-readable descriptions
+    gender_map = {
+        'male': 'male',
+        'female': 'female',
+        'non-binary': 'non-binary',
+        'prefer-not-to-say': 'prefers not to specify'
+    }
+    gender_desc = gender_map.get(gender, gender)
+
+    # Build context string
+    context = f"""
+USER PROFILE CONTEXT:
+- Gender: {gender_desc}
+- Age range: {age_range}
+- Current mood/state: {mood}
+
+Please consider this context when providing your professional perspective.
+"""
+    return context.strip()
+
+
+def build_follow_up_context(follow_up_answers: str) -> str:
+    """
+    Build context from user's follow-up answers for second report cycle.
+
+    This allows the second deliberation to build upon the first report
+    with additional information provided by the user.
+
+    Args:
+        follow_up_answers: User's answers to follow-up questions
+
+    Returns:
+        Formatted context string for injection into prompts
+    """
+    if not follow_up_answers:
+        return ""
+
+    context = f"""
+FOLLOW-UP INFORMATION FROM USER:
+{follow_up_answers}
+
+Please incorporate this additional context into your professional assessment.
+"""
+    return context.strip()
+
+
 def check_for_crisis(user_query: str) -> bool:
     """
     Detect if query contains crisis indicators requiring immediate intervention.
@@ -23,23 +90,45 @@ def check_for_crisis(user_query: str) -> bool:
     return any(keyword in query_lower for keyword in CRISIS_KEYWORDS)
 
 
-async def stage1_collect_responses(user_query: str) -> List[Dict[str, Any]]:
+async def stage1_collect_responses(
+    user_query: str,
+    user_profile: Dict[str, Any] = None,
+    follow_up_context: str = None
+) -> List[Dict[str, Any]]:
     """
     Stage 1: Collect individual responses from wellness professionals.
 
+    Feature 3: Now accepts user profile and follow-up context to provide
+    personalized recommendations across report cycles.
+
     Args:
         user_query: The user's wellness question/concern
+        user_profile: Optional user profile dict with gender, age_range, mood
+        follow_up_context: Optional follow-up answers from previous report
 
     Returns:
         List of dicts with 'model', 'response', and 'role' keys
     """
-    # Prepend disclaimer to user query
-    query_with_disclaimer = f"""{MEDICAL_DISCLAIMER}
+    # Build contextual additions
+    profile_ctx = build_profile_context(user_profile) if user_profile else ""
+    followup_ctx = build_follow_up_context(follow_up_context) if follow_up_context else ""
 
+    # Combine all context elements
+    context_parts = [MEDICAL_DISCLAIMER]
+
+    if profile_ctx:
+        context_parts.append(profile_ctx)
+
+    if followup_ctx:
+        context_parts.append(followup_ctx)
+
+    context_parts.append(f"""
 User's Question/Concern:
 {user_query}
 
-Please provide your professional perspective on this concern."""
+Please provide your professional perspective on this concern.""")
+
+    query_with_context = "\n\n".join(context_parts)
 
     stage1_results = []
 
@@ -50,7 +139,7 @@ Please provide your professional perspective on this concern."""
 
         messages = [
             {"role": "system", "content": role_context},
-            {"role": "user", "content": query_with_disclaimer}
+            {"role": "user", "content": query_with_context}
         ]
 
         tasks.append(query_model(model, messages))
@@ -361,12 +450,21 @@ Title:"""
     return title
 
 
-async def run_full_council(user_query: str) -> Tuple[List, List, Dict, Dict]:
+async def run_full_council(
+    user_query: str,
+    user_profile: Dict[str, Any] = None,
+    follow_up_context: str = None
+) -> Tuple[List, List, Dict, Dict]:
     """
     Run the complete 3-stage wellness council process.
 
+    Feature 3: Now accepts user profile and follow-up context to provide
+    personalized recommendations across report cycles.
+
     Args:
         user_query: The user's wellness question/concern
+        user_profile: Optional user profile dict with gender, age_range, mood
+        follow_up_context: Optional follow-up answers from previous report
 
     Returns:
         Tuple of (stage1_results, stage2_results, stage3_result, metadata)
@@ -375,7 +473,12 @@ async def run_full_council(user_query: str) -> Tuple[List, List, Dict, Dict]:
     is_crisis = check_for_crisis(user_query)
 
     # Stage 1: Collect individual responses from wellness professionals
-    stage1_results = await stage1_collect_responses(user_query)
+    # Pass profile and follow-up context for personalization
+    stage1_results = await stage1_collect_responses(
+        user_query,
+        user_profile=user_profile,
+        follow_up_context=follow_up_context
+    )
 
     # If no models responded successfully, return error
     if not stage1_results:

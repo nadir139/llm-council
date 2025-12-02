@@ -39,7 +39,14 @@ def create_conversation(conversation_id: str) -> Dict[str, Any]:
         "created_at": datetime.utcnow().isoformat(),
         "title": "New Conversation",
         "starred": False,
-        "messages": []
+        "messages": [],
+        # Feature 3: Report cycle tracking for freemium model
+        # Tracks which report cycle we're on (1st question, 2nd with follow-up)
+        "report_cycle": 0,  # 0 = initial, 1 = after first report, 2 = after follow-up
+        # Whether user has submitted follow-up answers for current report
+        "has_follow_up": False,
+        # Stores the user's answers to follow-up questions
+        "follow_up_answers": None
     }
 
     # Save to file
@@ -207,6 +214,35 @@ def delete_conversation(conversation_id: str):
     path = get_conversation_path(conversation_id)
     if os.path.exists(path):
         os.remove(path)
+
+
+def save_follow_up_answers(conversation_id: str, follow_up_answers: str):
+    """
+    Save follow-up answers to a conversation for Feature 3.
+
+    This enables the second report generation with additional context.
+    After saving, the conversation is marked as having follow-up data,
+    which will be injected into the next council deliberation.
+
+    Args:
+        conversation_id: Conversation identifier
+        follow_up_answers: User's answers to follow-up questions
+
+    Raises:
+        ValueError: If conversation not found
+    """
+    conversation = get_conversation(conversation_id)
+    if conversation is None:
+        raise ValueError(f"Conversation {conversation_id} not found")
+
+    # Store the follow-up answers
+    conversation["follow_up_answers"] = follow_up_answers
+    conversation["has_follow_up"] = True
+
+    # Increment report cycle: 0 → 1 (after first report), 1 → 2 (after follow-up)
+    conversation["report_cycle"] = conversation.get("report_cycle", 0) + 1
+
+    save_conversation(conversation)
 
 
 # User Profile Functions

@@ -5,12 +5,15 @@ import Stage1 from './Stage1';
 import Stage3 from './Stage3';
 import MedicalDisclaimer from './MedicalDisclaimer';
 import CrisisResources from './CrisisResources';
+import FollowUpForm from './FollowUpForm';
 import './ChatInterface.css';
 
 export default function ChatInterface({
   conversation,
   onSendMessage,
   isLoading,
+  onSubmitFollowUp,  // New prop for Feature 3
+  isFollowUpLoading, // New prop for Feature 3
 }) {
   const [input, setInput] = useState('');
   const messagesEndRef = useRef(null);
@@ -106,6 +109,19 @@ export default function ChatInterface({
                       </div>
                     )}
                     {msg.stage3 && <Stage3 finalResponse={msg.stage3} />}
+
+                    {/* Feature 3: Show follow-up form after first report */}
+                    {msg.stage3 &&
+                      index === conversation.messages.length - 1 && // Last message
+                      conversation.report_cycle === 0 && // First report cycle
+                      !conversation.has_follow_up && // No follow-up submitted yet
+                      !isLoading && // Not currently loading a new message
+                      onSubmitFollowUp && ( // Handler is provided
+                        <FollowUpForm
+                          onSubmit={onSubmitFollowUp}
+                          isLoading={isFollowUpLoading}
+                        />
+                      )}
                   </div>
                 )}
               </div>
