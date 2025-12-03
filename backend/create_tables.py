@@ -1,3 +1,6 @@
+from dotenv import load_dotenv
+load_dotenv()  # <-- This loads .env into environment variables
+
 """Create all database tables in Supabase."""
 import asyncio
 from database import DatabaseManager
