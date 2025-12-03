@@ -323,6 +323,25 @@ export const api = {
   },
 
   /**
+   * Verify Stripe checkout session and update subscription (fallback for development).
+   * @param {string} sessionId - Stripe checkout session ID
+   * @param {Function} getToken - Function to get auth token
+   * @returns {Promise<object>} - Verification result with updated subscription
+   */
+  async verifyCheckoutSession(sessionId, getToken) {
+    const response = await fetch(`${API_BASE}/api/subscription/verify-session`, {
+      method: 'POST',
+      headers: await getHeaders(getToken),
+      body: JSON.stringify({ session_id: sessionId }),
+    });
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.detail || 'Failed to verify checkout session');
+    }
+    return response.json();
+  },
+
+  /**
    * Cancel recurring subscription.
    */
   async cancelSubscription(getToken) {

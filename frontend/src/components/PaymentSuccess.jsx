@@ -20,16 +20,29 @@ export default function PaymentSuccess() {
       }
 
       try {
-        // Small delay to ensure webhook has processed
-        await new Promise(resolve => setTimeout(resolve, 2000));
+        // Get session_id from URL
+        const urlParams = new URLSearchParams(window.location.search);
+        const sessionId = urlParams.get('session_id');
 
-        // Fetch updated subscription status
-        const sub = await api.getSubscription(getToken);
-        setSubscription(sub);
-        setLoading(false);
+        if (!sessionId) {
+          setError('Missing payment session ID. Please try again or contact support.');
+          setLoading(false);
+          return;
+        }
+
+        // Verify the checkout session and update subscription
+        // This is a fallback for development where webhooks don't work
+        const result = await api.verifyCheckoutSession(sessionId, getToken);
+
+        if (result.success && result.subscription) {
+          setSubscription(result.subscription);
+          setLoading(false);
+        } else {
+          throw new Error('Verification succeeded but subscription data missing');
+        }
       } catch (err) {
         console.error('Failed to verify payment:', err);
-        setError('Failed to verify payment status. Please contact support.');
+        setError(err.message || 'Failed to verify payment status. Please contact support.');
         setLoading(false);
       }
     }
