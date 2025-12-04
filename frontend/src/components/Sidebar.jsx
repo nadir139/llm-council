@@ -1,5 +1,8 @@
+/**
+ * Sidebar component with Supabase authentication
+ */
 import { useState, useEffect, useRef } from 'react';
-import { useClerk, useUser } from '@clerk/clerk-react';
+import { supabase } from '../supabaseClient';
 import { useNavigate } from 'react-router-dom';
 import './Sidebar.css';
 
@@ -14,10 +17,19 @@ export default function Sidebar({
   isOpen = true,
   onToggleSidebar,
   subscription, // Feature 4: Subscription data
+  user, // Supabase user object (passed from App.jsx)
 }) {
-  const { signOut } = useClerk();
-  const { user } = useUser();
   const navigate = useNavigate();
+
+  // Sign out handler using Supabase
+  const handleSignOut = async () => {
+    try {
+      await supabase.auth.signOut();
+      navigate('/');
+    } catch (error) {
+      console.error('Error signing out:', error);
+    }
+  };
   const [openMenuId, setOpenMenuId] = useState(null);
   const [settingsMenuOpen, setSettingsMenuOpen] = useState(false);
   const menuRef = useRef(null);
@@ -279,7 +291,7 @@ export default function Sidebar({
               {/* Logout - moved from standalone button */}
               <button
                 className="settings-item logout"
-                onClick={() => signOut()}
+                onClick={handleSignOut}
               >
                 <span className="item-icon">🚪</span>
                 Log Out

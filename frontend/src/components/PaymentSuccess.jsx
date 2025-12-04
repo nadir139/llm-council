@@ -1,21 +1,38 @@
+/**
+ * PaymentSuccess component with Supabase authentication
+ */
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useAuth, useUser } from '@clerk/clerk-react';
+import { supabase } from '../supabaseClient';
 import { api } from '../api';
 import './PaymentSuccess.css';
 
 export default function PaymentSuccess() {
   const navigate = useNavigate();
-  const { getToken, isLoaded: authLoaded } = useAuth();
-  const { isSignedIn, isLoaded: userLoaded } = useUser();
   const [loading, setLoading] = useState(true);
   const [subscription, setSubscription] = useState(null);
   const [error, setError] = useState(null);
+  const [authReady, setAuthReady] = useState(false);
+
+  // Get Supabase session token
+  const getToken = async () => {
+    const { data: { session } } = await supabase.auth.getSession();
+    return session?.access_token;
+  };
+
+  // Check auth status
+  useEffect(() => {
+    const checkAuth = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      setAuthReady(!!session);
+    };
+    checkAuth();
+  }, []);
 
   useEffect(() => {
     async function verifyPayment() {
       // Wait for auth to be ready
-      if (!authLoaded || !userLoaded || !isSignedIn) {
+      if (!authReady) {
         return;
       }
 
@@ -48,7 +65,7 @@ export default function PaymentSuccess() {
     }
 
     verifyPayment();
-  }, [getToken, authLoaded, userLoaded, isSignedIn]);
+  }, [authReady]);
 
   const handleContinue = () => {
     // Navigate back to chat

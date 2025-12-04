@@ -1,6 +1,12 @@
+/**
+ * Main App component for Wellness Partner
+ *
+ * Uses Supabase for authentication instead of Clerk.
+ * Authentication state is managed through Supabase's onAuthStateChange listener.
+ */
 import { useState, useEffect } from 'react';
 import { Routes, Route, useNavigate } from 'react-router-dom';
-import { useUser, useAuth } from '@clerk/clerk-react';
+import { supabase } from './supabaseClient';
 import Sidebar from './components/Sidebar';
 import ChatInterface from './components/ChatInterface';
 import OnboardingPage from './components/OnboardingPage';
@@ -13,9 +19,20 @@ import { api } from './api';
 import './App.css';
 
 function App() {
-  const { isSignedIn, user, isLoaded } = useUser();
-  const { getToken } = useAuth();
+  // Supabase authentication state
+  const [session, setSession] = useState(null);
+  const [user, setUser] = useState(null);
+  const [isLoaded, setIsLoaded] = useState(false);
   const navigate = useNavigate();
+
+  // Derived auth state (for compatibility with existing code)
+  const isSignedIn = !!session;
+
+  // Helper function to get auth token (replaces Clerk's getToken)
+  const getToken = async () => {
+    if (!session) return null;
+    return session.access_token;
+  };
 
   const [conversations, setConversations] = useState([]);
   const [currentConversationId, setCurrentConversationId] = useState(null);
@@ -32,6 +49,29 @@ function App() {
   const [userProfile, setUserProfile] = useState(null);
   const [hasBackendProfile, setHasBackendProfile] = useState(false);
   const [checkingProfile, setCheckingProfile] = useState(true);
+
+  // Initialize Supabase auth listener
+  // This runs once on mount and sets up the authentication state listener
+  useEffect(() => {
+    // Get initial session
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setSession(session);
+      setUser(session?.user || null);
+      setIsLoaded(true);
+    });
+
+    // Listen for auth state changes (sign in, sign out, token refresh)
+    const {
+      data: { subscription: authSubscription },
+    } = supabase.auth.onAuthStateChange((_event, session) => {
+      setSession(session);
+      setUser(session?.user || null);
+      setIsLoaded(true);
+    });
+
+    // Cleanup listener on unmount
+    return () => authSubscription.unsubscribe();
+  }, []);
 
   // Feature 4: Load subscription when user is authenticated
   useEffect(() => {
@@ -407,6 +447,7 @@ function App() {
         isOpen={sidebarOpen}
         onToggleSidebar={() => setSidebarOpen(!sidebarOpen)}
         subscription={subscription}
+        user={user}
       />
       <ChatInterface
         conversation={currentConversation}

@@ -1,18 +1,24 @@
 /**
- * API client for the LLM Council backend with Clerk authentication.
+ * API client for the LLM Council backend with Supabase authentication.
+ *
+ * Uses Supabase JWT tokens for authorization. The getToken function
+ * should return a Supabase session access_token.
  */
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8001';
 
 /**
- * Get headers with optional auth token
+ * Get headers with optional Supabase auth token
+ *
+ * @param {Function} getToken - Async function that returns Supabase access_token
+ * @returns {Promise<Object>} Headers object with Authorization if token available
  */
 async function getHeaders(getToken) {
   const headers = {
     'Content-Type': 'application/json',
   };
 
-  // Add auth token if getToken function is provided
+  // Add Supabase JWT token if getToken function is provided
   if (getToken) {
     try {
       const token = await getToken();
@@ -20,7 +26,7 @@ async function getHeaders(getToken) {
         headers['Authorization'] = `Bearer ${token}`;
       }
     } catch (error) {
-      console.error('Failed to get auth token:', error);
+      console.error('Failed to get Supabase auth token:', error);
     }
   }
 

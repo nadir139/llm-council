@@ -19,13 +19,24 @@ STRIPE_SECRET_KEY = os.getenv("STRIPE_SECRET_KEY")
 STRIPE_PUBLISHABLE_KEY = os.getenv("STRIPE_PUBLISHABLE_KEY")
 STRIPE_WEBHOOK_SECRET = os.getenv("STRIPE_WEBHOOK_SECRET")
 
-# Clerk authentication
-CLERK_SECRET_KEY = os.getenv("CLERK_SECRET_KEY")
-CLERK_INSTANCE_ID = os.getenv("CLERK_INSTANCE_ID")
+# Supabase authentication configuration
+# Supabase uses JWT tokens signed with HS256 (symmetric key)
+SUPABASE_URL = os.getenv("SUPABASE_URL")
+SUPABASE_ANON_KEY = os.getenv("SUPABASE_ANON_KEY")
+SUPABASE_JWT_SECRET = os.getenv("SUPABASE_JWT_SECRET")
 
-# Validate required Clerk configuration
-if not CLERK_INSTANCE_ID:
-    raise ValueError("CLERK_INSTANCE_ID environment variable is required. Example: 'saved-leopard-59'")
+# Validate required Supabase configuration
+# SUPABASE_JWT_SECRET is critical for verifying user tokens
+if not SUPABASE_JWT_SECRET:
+    raise ValueError("SUPABASE_JWT_SECRET environment variable is required. Find it in Supabase Dashboard > Settings > API > JWT Secret")
+
+# SUPABASE_URL is needed for the frontend to initialize Supabase client
+if not SUPABASE_URL:
+    raise ValueError("SUPABASE_URL environment variable is required. Example: 'https://xxxxx.supabase.co'")
+
+# SUPABASE_ANON_KEY is the public key for frontend initialization (safe to expose)
+if not SUPABASE_ANON_KEY:
+    raise ValueError("SUPABASE_ANON_KEY environment variable is required. Find it in Supabase Dashboard > Settings > API > anon public key")
 
 # Wellness council members - 5 specialized professional roles
 # Using role-specific identifiers for the same base model
