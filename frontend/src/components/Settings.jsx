@@ -1,20 +1,38 @@
+/**
+ * Settings component with Supabase authentication
+ */
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useAuth, useUser } from '@clerk/clerk-react';
+import { supabase } from '../supabaseClient';
 import { api } from '../api';
 import './Settings.css';
 
 export default function Settings() {
   const navigate = useNavigate();
-  const { getToken } = useAuth();
-  const { user } = useUser();
+  const [user, setUser] = useState(null);
   const [subscription, setSubscription] = useState(null);
   const [loading, setLoading] = useState(true);
   const [cancelling, setCancelling] = useState(false);
   const [portalLoading, setPortalLoading] = useState(false);
 
+  // Get Supabase session token
+  const getToken = async () => {
+    const { data: { session } } = await supabase.auth.getSession();
+    return session?.access_token;
+  };
+
+  // Load user and subscription
   useEffect(() => {
-    loadSubscription();
+    const initializeSettings = async () => {
+      // Get current user
+      const { data: { session } } = await supabase.auth.getSession();
+      setUser(session?.user);
+
+      // Load subscription
+      await loadSubscription();
+    };
+
+    initializeSettings();
   }, []);
 
   const loadSubscription = async () => {
@@ -91,7 +109,7 @@ export default function Settings() {
           <h2>Account</h2>
           <div className="setting-item">
             <label>Email Address</label>
-            <p className="setting-value">{user?.primaryEmailAddress?.emailAddress}</p>
+            <p className="setting-value">{user?.email}</p>
           </div>
         </section>
 

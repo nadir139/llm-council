@@ -1,22 +1,22 @@
+/**
+ * Main entry point for the Wellness Partner application
+ *
+ * Supabase authentication is initialized in supabaseClient.js and used throughout the app.
+ * Unlike Clerk, Supabase doesn't require a provider wrapper - just import the client where needed.
+ */
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import { BrowserRouter } from 'react-router-dom'
-import { ClerkProvider } from '@clerk/clerk-react'
 import './index.css'
 import App from './App.jsx'
 
-const clerkPubKey = import.meta.env.VITE_CLERK_PUBLISHABLE_KEY
-
-if (!clerkPubKey) {
-  console.warn('Missing Clerk Publishable Key. Authentication will not work.')
-}
+// Supabase client is initialized in supabaseClient.js
+// No provider wrapper needed - just import { supabase } where you need it
 
 createRoot(document.getElementById('root')).render(
   <StrictMode>
-    <ClerkProvider publishableKey={clerkPubKey}>
-      <BrowserRouter>
-        <App />
-      </BrowserRouter>
-    </ClerkProvider>
+    <BrowserRouter>
+      <App />
+    </BrowserRouter>
   </StrictMode>,
 )

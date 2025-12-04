@@ -9,16 +9,34 @@ load_dotenv()
 OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY")
 
 # Admin API key for accessing Stage 2 analytics
-# Set this in your .env file: ADMIN_API_KEY=your_secret_key_here
-ADMIN_API_KEY = os.getenv("ADMIN_API_KEY", "change-this-in-production")
+# REQUIRED: Set this in your .env file: ADMIN_API_KEY=your_secret_key_here
+ADMIN_API_KEY = os.getenv("ADMIN_API_KEY")
+if not ADMIN_API_KEY:
+    raise ValueError("ADMIN_API_KEY environment variable is required for security. Generate a secure random key.")
 
 # Stripe API keys for payment processing (Feature 4)
 STRIPE_SECRET_KEY = os.getenv("STRIPE_SECRET_KEY")
 STRIPE_PUBLISHABLE_KEY = os.getenv("STRIPE_PUBLISHABLE_KEY")
 STRIPE_WEBHOOK_SECRET = os.getenv("STRIPE_WEBHOOK_SECRET")
 
-# Clerk authentication
-CLERK_SECRET_KEY = os.getenv("CLERK_SECRET_KEY")
+# Supabase authentication configuration
+# Supabase uses JWT tokens signed with HS256 (symmetric key)
+SUPABASE_URL = os.getenv("SUPABASE_URL")
+SUPABASE_ANON_KEY = os.getenv("SUPABASE_ANON_KEY")
+SUPABASE_JWT_SECRET = os.getenv("SUPABASE_JWT_SECRET")
+
+# Validate required Supabase configuration
+# SUPABASE_JWT_SECRET is critical for verifying user tokens
+if not SUPABASE_JWT_SECRET:
+    raise ValueError("SUPABASE_JWT_SECRET environment variable is required. Find it in Supabase Dashboard > Settings > API > JWT Secret")
+
+# SUPABASE_URL is needed for the frontend to initialize Supabase client
+if not SUPABASE_URL:
+    raise ValueError("SUPABASE_URL environment variable is required. Example: 'https://xxxxx.supabase.co'")
+
+# SUPABASE_ANON_KEY is the public key for frontend initialization (safe to expose)
+if not SUPABASE_ANON_KEY:
+    raise ValueError("SUPABASE_ANON_KEY environment variable is required. Find it in Supabase Dashboard > Settings > API > anon public key")
 
 # Wellness council members - 5 specialized professional roles
 # Using role-specific identifiers for the same base model

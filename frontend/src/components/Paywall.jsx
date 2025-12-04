@@ -1,10 +1,17 @@
+/**
+ * Paywall component with Supabase authentication
+ */
 import { useState, useEffect } from 'react';
-import { useAuth } from '@clerk/clerk-react';
+import { supabase } from '../supabaseClient';
 import { api } from '../api';
 import './Paywall.css';
 
 export default function Paywall() {
-  const { getToken } = useAuth();
+  // Get Supabase session token
+  const getToken = async () => {
+    const { data: { session } } = await supabase.auth.getSession();
+    return session?.access_token;
+  };
   const [plans, setPlans] = useState(null);
   const [loading, setLoading] = useState(false);
   const [selectedTier, setSelectedTier] = useState(null);

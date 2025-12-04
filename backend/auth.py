@@ -1,29 +1,36 @@
 """
-Authentication middleware using Clerk
+Authentication middleware using Supabase Auth
+
+Verifies JWT tokens issued by Supabase and extracts user information.
+Supabase uses HS256 (symmetric) JWT signing with a secret key.
 """
-import os
 import jwt
-import requests
+import os
 from typing import Optional
 from fastapi import HTTPException, Header
+from . import config
 
-# Clerk configuration
-CLERK_SECRET_KEY = os.getenv("CLERK_SECRET_KEY")
-CLERK_JWKS_URL = "https://saved-leopard-59.clerk.accounts.dev/.well-known/jwks.json"
+# Supabase JWT configuration
+SUPABASE_JWT_SECRET = config.SUPABASE_JWT_SECRET
 
 
 async def get_current_user(authorization: Optional[str] = Header(None)):
     """
-    Verify JWT token from Clerk and return user ID.
+    Verify JWT token from Supabase Auth and return user information.
+
+    Supabase tokens contain:
+    - sub: user ID (UUID)
+    - email: user's email address
+    - exp: expiration timestamp
 
     Args:
-        authorization: Bearer token from request header
+        authorization: Bearer token from request header (format: "Bearer <token>")
 
     Returns:
-        dict: User information including user_id
+        dict: User information with user_id, email, first_name, last_name
 
     Raises:
-        HTTPException: If token is invalid or missing
+        HTTPException: If token is invalid, expired, or missing
     """
     if not authorization:
         raise HTTPException(
@@ -37,73 +44,44 @@ async def get_current_user(authorization: Optional[str] = Header(None)):
         if scheme.lower() != "bearer":
             raise HTTPException(
                 status_code=401,
-                detail="Invalid authentication scheme"
+                detail="Invalid authentication scheme. Expected 'Bearer <token>'"
             )
     except ValueError:
         raise HTTPException(
             status_code=401,
-            detail="Invalid authorization header format"
+            detail="Invalid authorization header format. Expected 'Bearer <token>'"
         )
 
-    # Verify token with Clerk
+    # Verify and decode the Supabase JWT token
     try:
-        # Decode the JWT token without verification first to get headers
-        unverified_header = jwt.get_unverified_header(token)
-
-        # Fetch JWKS from Clerk
-        jwks_response = requests.get(CLERK_JWKS_URL)
-        jwks = jwks_response.json()
-
-        # Find the matching key
-        rsa_key = {}
-        for key in jwks["keys"]:
-            if key["kid"] == unverified_header["kid"]:
-                rsa_key = {
-                    "kty": key["kty"],
-                    "kid": key["kid"],
-                    "use": key["use"],
-                    "n": key["n"],
-                    "e": key["e"]
-                }
-                break
-
-        if not rsa_key:
-            raise HTTPException(
-                status_code=401,
-                detail="Unable to find appropriate key"
-            )
-
-        # Verify and decode the token
+        # Supabase uses HS256 (symmetric signing) with JWT secret
         payload = jwt.decode(
             token,
-            key=jwt.algorithms.RSAAlgorithm.from_jwk(rsa_key),
-            algorithms=["RS256"],
-            options={"verify_aud": False}  # Clerk doesn't require audience verification
+            SUPABASE_JWT_SECRET,
+            algorithms=["HS256"],
+            options={"verify_aud": False}  # Supabase doesn't use audience claim
         )
 
-        # Extract user information from the token payload
-        # Clerk stores email in the 'email' claim, but it might be in email_addresses
-        email = payload.get("email")
-        if not email and "email_addresses" in payload:
-            # Try to get from email_addresses array if available
-            email_addresses = payload.get("email_addresses", [])
-            if email_addresses and len(email_addresses) > 0:
-                email = email_addresses[0].get("email_address")
+        # Extract user information from JWT payload
+        user_id = payload.get("sub")  # Supabase user ID (UUID)
+        email = payload.get("email")  # User's email
 
-        # Use a default email if not found
-        if not email:
-            email = "user@clerk.local"
+        # Get user metadata (first_name, last_name) if available
+        user_metadata = payload.get("user_metadata", {})
+        first_name = user_metadata.get("first_name")
+        last_name = user_metadata.get("last_name")
 
         return {
-            "user_id": payload.get("sub"),
-            "email": email,
-            "first_name": payload.get("first_name"),
-            "last_name": payload.get("last_name"),
+            "user_id": user_id,
+            "email": email or "unknown@supabase.local",
+            "first_name": first_name,
+            "last_name": last_name
         }
+
     except jwt.ExpiredSignatureError:
         raise HTTPException(
             status_code=401,
-            detail="Token has expired"
+            detail="Token has expired. Please sign in again."
         )
     except jwt.InvalidTokenError as e:
         raise HTTPException(
@@ -117,12 +95,15 @@ async def get_current_user(authorization: Optional[str] = Header(None)):
         )
 
 
-def get_admin_key(admin_key: Optional[str] = Header(None)):
+def get_admin_key(admin_key: Optional[str] = Header(None, alias="X-Admin-Key")):
     """
-    Verify admin API key for administrative endpoints.
+    Verify admin API key for administrative endpoints (e.g., Stage 2 analytics).
+
+    Admin endpoints require a separate API key sent via X-Admin-Key header.
+    This is independent of user authentication.
 
     Args:
-        admin_key: Admin API key from header
+        admin_key: Admin API key from X-Admin-Key header
 
     Returns:
         bool: True if valid admin key
@@ -133,14 +114,14 @@ def get_admin_key(admin_key: Optional[str] = Header(None)):
     if not admin_key:
         raise HTTPException(
             status_code=403,
-            detail="Admin key required"
+            detail="Admin key required. Please provide X-Admin-Key header."
         )
 
-    expected_key = os.getenv("ADMIN_API_KEY")
+    expected_key = config.ADMIN_API_KEY
     if not expected_key:
         raise HTTPException(
             status_code=500,
-            detail="Admin key not configured"
+            detail="Admin key not configured on server"
         )
 
     if admin_key != expected_key:
