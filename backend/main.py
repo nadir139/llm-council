@@ -34,7 +34,7 @@ from .database import DatabaseManager, get_db_session
 from sqlalchemy.ext.asyncio import AsyncSession
 from .council import run_full_council, generate_conversation_title, stage1_collect_responses, stage2_collect_rankings, stage3_synthesize_final, calculate_aggregate_rankings
 from .auth import get_current_user, get_admin_key
-from .stripe_integration import create_checkout_session, verify_webhook_signature, get_all_plans, cancel_subscription, create_customer_portal_session
+from .stripe_integration import create_checkout_session, verify_webhook_signature, get_all_plans, cancel_subscription, create_customer_portal_session, retrieve_checkout_session
 
 # Initialize rate limiter
 limiter = Limiter(key_func=get_remote_address)
@@ -158,7 +158,7 @@ class Conversation(BaseModel):
     id: str
     created_at: str
     title: str
-    messages: List[Dict[str, Any]]
+    messages: List[Dict[str, Any]] = []  # Default to empty list for new conversations
 
 
 @app.get("/")
@@ -241,9 +241,9 @@ async def get_conversation(
 @app.post("/api/conversations/{conversation_id}/message")
 @limiter.limit("10/minute")  # Limit to 10 queries per minute per user
 async def send_message(
-    req: Request,
+    request: Request,
     conversation_id: str,
-    request: SendMessageRequest,
+    message_request: SendMessageRequest,
     user: Dict[str, Any] = Depends(get_current_user),
     session: AsyncSession = Depends(get_db_session)
 ):
@@ -256,7 +256,7 @@ async def send_message(
     logger.info("message_received",
                 user_id=user["user_id"],
                 conversation_id=conversation_id,
-                message_length=len(request.content))
+                message_length=len(message_request.content))
 
     # Check if conversation exists
     conversation = await db_storage.get_conversation(conversation_id, session)
@@ -277,13 +277,13 @@ async def send_message(
     # Add user message
     await db_storage.add_message(
         conversation_id,
-        {"role": "user", "content": request.content},
+        {"role": "user", "content": message_request.content},
         session
     )
 
     # If this is the first message, generate a title
     if is_first_message:
-        title = await generate_conversation_title(request.content)
+        title = await generate_conversation_title(message_request.content)
         await db_storage.update_conversation_title(conversation_id, title, session)
 
     # Feature 3: Get user profile for context injection
@@ -294,7 +294,7 @@ async def send_message(
 
     # Run the 3-stage council process with profile and follow-up context
     stage1_results, stage2_results, stage3_result, metadata = await run_full_council(
-        request.content,
+        message_request.content,
         user_profile=user_profile,
         follow_up_context=follow_up_context
     )
@@ -326,9 +326,9 @@ async def send_message(
 @app.post("/api/conversations/{conversation_id}/message/stream")
 @limiter.limit("10/minute")  # Limit to 10 queries per minute per user
 async def send_message_stream(
-    req: Request,
+    request: Request,
     conversation_id: str,
-    request: SendMessageRequest,
+    message_request: SendMessageRequest,
     user: Dict[str, Any] = Depends(get_current_user),
     session: AsyncSession = Depends(get_db_session)
 ):
@@ -361,19 +361,19 @@ async def send_message_stream(
             # Add user message
             await db_storage.add_message(
                 conversation_id,
-                {"role": "user", "content": request.content},
+                {"role": "user", "content": message_request.content},
                 session
             )
 
             # Start title generation in parallel (don't await yet)
             title_task = None
             if is_first_message:
-                title_task = asyncio.create_task(generate_conversation_title(request.content))
+                title_task = asyncio.create_task(generate_conversation_title(message_request.content))
 
             # Stage 1: Collect responses with profile and follow-up context
             yield f"data: {json.dumps({'type': 'stage1_start'})}\n\n"
             stage1_results = await stage1_collect_responses(
-                request.content,
+                message_request.content,
                 user_profile=user_profile,
                 follow_up_context=follow_up_context
             )
@@ -381,13 +381,13 @@ async def send_message_stream(
 
             # Stage 2: Collect rankings
             yield f"data: {json.dumps({'type': 'stage2_start'})}\n\n"
-            stage2_results, label_to_model = await stage2_collect_rankings(request.content, stage1_results)
+            stage2_results, label_to_model = await stage2_collect_rankings(message_request.content, stage1_results)
             aggregate_rankings = calculate_aggregate_rankings(stage2_results, label_to_model)
             yield f"data: {json.dumps({'type': 'stage2_complete', 'data': stage2_results, 'metadata': {'label_to_model': label_to_model, 'aggregate_rankings': aggregate_rankings}})}\n\n"
 
             # Stage 3: Synthesize final answer
             yield f"data: {json.dumps({'type': 'stage3_start'})}\n\n"
-            stage3_result = await stage3_synthesize_final(request.content, stage1_results, stage2_results)
+            stage3_result = await stage3_synthesize_final(message_request.content, stage1_results, stage2_results)
             yield f"data: {json.dumps({'type': 'stage3_complete', 'data': stage3_result})}\n\n"
 
             # Wait for title generation if it was started
@@ -887,6 +887,79 @@ async def get_subscription_portal(
         return {
             "portal_url": portal_url
         }
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+class VerifySessionRequest(BaseModel):
+    """Request to verify a checkout session."""
+    session_id: str
+
+
+@app.post("/api/subscription/verify-session")
+async def verify_checkout_session_endpoint(
+    request: VerifySessionRequest,
+    user: Dict[str, Any] = Depends(get_current_user),
+    session: AsyncSession = Depends(get_db_session)
+):
+    """
+    Verify a Stripe checkout session and update subscription.
+
+    This is a fallback for development where webhooks don't work
+    (since webhooks require a public URL). In production, webhooks
+    should handle subscription updates.
+    """
+    try:
+        # Retrieve the checkout session from Stripe
+        checkout_session = retrieve_checkout_session(request.session_id)
+
+        if not checkout_session:
+            raise HTTPException(status_code=404, detail="Checkout session not found")
+
+        # Verify payment was successful
+        if checkout_session["payment_status"] != "paid":
+            raise HTTPException(
+                status_code=400,
+                detail=f"Payment not completed. Status: {checkout_session['payment_status']}"
+            )
+
+        # Get tier from metadata
+        tier = checkout_session["metadata"].get("tier")
+        metadata_user_id = checkout_session["metadata"].get("user_id")
+
+        # Verify the session belongs to this user
+        if metadata_user_id != user["user_id"]:
+            raise HTTPException(status_code=403, detail="Session does not belong to this user")
+
+        # Get or create subscription
+        subscription = await db_storage.get_subscription(user["user_id"], session)
+        if subscription is None:
+            subscription = await db_storage.create_subscription(user["user_id"], tier=tier, session=session)
+        else:
+            # Update existing subscription
+            update_data = {
+                "tier": tier,
+                "status": "active"
+            }
+            if checkout_session.get("customer"):
+                update_data["stripe_customer_id"] = checkout_session["customer"]
+            if checkout_session.get("subscription"):
+                update_data["stripe_subscription_id"] = checkout_session["subscription"]
+
+            await db_storage.update_subscription(user["user_id"], update_data, session)
+
+        # Auto-restore expired reports for paid users
+        await db_storage.restore_all_expired_reports(user["user_id"], session)
+
+        # Reload subscription to get updated data
+        subscription = await db_storage.get_subscription(user["user_id"], session)
+
+        return {
+            "success": True,
+            "subscription": subscription,
+            "message": "Subscription verified and activated successfully"
+        }
+
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
 

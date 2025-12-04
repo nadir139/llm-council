@@ -209,3 +209,33 @@ def create_customer_portal_session(stripe_customer_id: str, return_url: str) -> 
         return session.url
     except stripe.error.StripeError as e:
         raise ValueError(f"Failed to create customer portal session: {str(e)}")
+
+
+def retrieve_checkout_session(session_id: str) -> Optional[Dict[str, Any]]:
+    """
+    Retrieve a Stripe checkout session by ID.
+
+    This is used as a fallback for development when webhooks don't work
+    (since webhooks require a public URL).
+
+    Args:
+        session_id: The Stripe checkout session ID
+
+    Returns:
+        Dict with session details or None if not found
+
+    Raises:
+        ValueError: If Stripe API fails
+    """
+    try:
+        session = stripe.checkout.Session.retrieve(session_id)
+        return {
+            "id": session.id,
+            "payment_status": session.payment_status,
+            "status": session.status,
+            "customer": session.customer,
+            "subscription": session.subscription,
+            "metadata": dict(session.metadata) if session.metadata else {},
+        }
+    except stripe.error.StripeError as e:
+        raise ValueError(f"Failed to retrieve checkout session: {str(e)}")

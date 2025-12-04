@@ -124,7 +124,21 @@ class Conversation(Base):
         Index('idx_user_starred', 'user_id', 'starred'),
     )
 
-    def to_dict(self, include_messages=False):
+    def to_dict(self, include_messages=False, message_count=None):
+        """
+        Convert conversation to dictionary.
+
+        Args:
+            include_messages: If True, include full message list (requires eager loading)
+            message_count: Optional pre-computed message count to avoid lazy loading
+        """
+        from sqlalchemy.orm.attributes import instance_state
+        from sqlalchemy.orm.base import NO_VALUE
+
+        # Check if messages are loaded to avoid lazy loading in async context
+        state = instance_state(self)
+        messages_loaded = state.attrs.messages.loaded_value is not NO_VALUE
+
         data = {
             "id": self.id,
             "user_id": self.user_id,
@@ -135,10 +149,10 @@ class Conversation(Base):
             "report_cycle": self.report_cycle,
             "has_follow_up": self.has_follow_up,
             "follow_up_answers": self.follow_up_answers,
-            "message_count": len(self.messages) if self.messages else 0
+            "message_count": message_count if message_count is not None else (len(self.messages) if messages_loaded else 0)
         }
 
-        if include_messages:
+        if include_messages and messages_loaded:
             data["messages"] = [msg.to_dict() for msg in self.messages]
 
         return data

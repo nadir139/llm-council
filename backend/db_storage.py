@@ -9,6 +9,7 @@ from typing import Dict, Any, List, Optional
 from datetime import datetime, timedelta
 from sqlalchemy import select, update, delete, and_, or_, func
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 import uuid
 
 from .database import User, Subscription, Conversation, Message, DatabaseManager
@@ -201,7 +202,9 @@ async def create_conversation(user_id: str, session: AsyncSession) -> Dict[str, 
 async def get_conversation(conversation_id: str, session: AsyncSession) -> Optional[Dict[str, Any]]:
     """Get conversation by ID with all messages."""
     result = await session.execute(
-        select(Conversation).where(Conversation.id == conversation_id)
+        select(Conversation)
+        .options(selectinload(Conversation.messages))
+        .where(Conversation.id == conversation_id)
     )
     conversation = result.scalar_one_or_none()
     return conversation.to_dict(include_messages=True) if conversation else None
@@ -263,7 +266,9 @@ async def delete_conversation(conversation_id: str, session: AsyncSession) -> No
 async def update_conversation_follow_up(conversation_id: str, follow_up_answers: str, session: AsyncSession) -> Dict[str, Any]:
     """Update conversation with follow-up answers and increment report cycle."""
     result = await session.execute(
-        select(Conversation).where(Conversation.id == conversation_id)
+        select(Conversation)
+        .options(selectinload(Conversation.messages))
+        .where(Conversation.id == conversation_id)
     )
     conversation = result.scalar_one_or_none()
 
